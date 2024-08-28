@@ -3,7 +3,7 @@ Company: CODTECH IT SOLUTIONS
 ID: CT6WTDS410
 Domain: JAVA PROGRAMMING
 Duration:AUGUST 1st, 2024 to SEPTEMBER 15th, 2024
-Mentor: SRAVANI GOUNI
+Mentor: Muzammil Ahmed
 
 *Overview of the Project : 
 - Project: Online Banking System
