@@ -47,6 +47,16 @@ Components:
 - Custom Exception: InsufficientFundsException for handling cases of insufficient balance.
 - This project provides a foundational framework for an online banking system with a focus on secure transaction management and user authentication.
 
+  OUTPUT : ![image](https://github.com/user-attachments/assets/6f8897fc-2f9a-4fc3-b6b5-dc3a2f05d982)
+  
+  ![image](https://github.com/user-attachments/assets/b89a3317-01d5-4087-af0c-27037d49a897)
+
+  ![image](https://github.com/user-attachments/assets/3cd2192a-1f78-4558-9823-d7037fb460ae)
+
+  
+
+
+
 
 
 
