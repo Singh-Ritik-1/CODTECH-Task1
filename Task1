@@ -1,0 +1,314 @@
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class OnlineBankingSystemm {
+
+    // Encryption class to handle password hashing and token generation
+    static class Encryption {
+        public static String hashPassword(String password) {
+            return Base64.getEncoder().encodeToString(password.getBytes());
+        }
+
+        public static String generateToken(String username) {
+            return Base64.getEncoder().encodeToString((username + System.currentTimeMillis()).getBytes());
+        }
+    }
+
+    // Transaction class to record banking operations
+    static class Transaction {
+        private String type;
+        private double amount;
+        private Date date;
+
+        public Transaction(String type, double amount) {
+            this.type = type;
+            this.amount = amount;
+            this.date = new Date();
+        }
+
+        @Override
+        public String toString() {
+            return "Transaction{" +
+                    "type='" + type + '\'' +
+                    ", amount=" + amount +
+                    ", date=" + date +
+                    '}';
+        }
+    }
+
+    // Account class to manage user's account
+    static class Account {
+        private final String accountNumber;
+        private double balance;
+        private final List<Transaction> transactions;
+
+        public Account(String accountNumber) {
+            this.accountNumber = accountNumber;
+            this.balance = 0.0;
+            this.transactions = new ArrayList<>();
+        }
+
+        public synchronized void deposit(double amount) {
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Deposit amount must be positive.");
+            }
+            this.balance += amount;
+            transactions.add(new Transaction("Deposit", amount));
+        }
+
+        public synchronized void withdraw(double amount) throws InsufficientFundsException {
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Withdrawal amount must be positive.");
+            }
+            if (amount > this.balance) {
+                throw new InsufficientFundsException("Insufficient funds for withdrawal.");
+            }
+            this.balance -= amount;
+            transactions.add(new Transaction("Withdrawal", amount));
+        }
+
+        public synchronized void transfer(Account targetAccount, double amount) throws InsufficientFundsException {
+            if (targetAccount == null) {
+                throw new IllegalArgumentException("Target account cannot be null.");
+            }
+            this.withdraw(amount);
+            targetAccount.deposit(amount);
+            transactions.add(new Transaction("Transfer to " + targetAccount.getAccountNumber(), amount));
+            targetAccount.getTransactions().add(new Transaction("Transfer from " + this.getAccountNumber(), amount));
+        }
+
+        public String getAccountNumber() {
+            return accountNumber;
+        }
+
+        public double getBalance() {
+            return balance;
+        }
+
+        public List<Transaction> getTransactions() {
+            return Collections.unmodifiableList(transactions);
+        }
+
+        public void viewTransactionHistory() {
+            transactions.forEach(System.out::println);
+        }
+    }
+
+    // User class to handle user's personal information
+    static class User {
+        private final String username;
+        private String passwordHash;
+        private String fullName;
+        private String email;
+        private String phoneNumber;
+
+        public User(String username, String password, String fullName, String email, String phoneNumber) {
+            this.username = username;
+            this.passwordHash = Encryption.hashPassword(password);
+            this.fullName = fullName;
+            this.email = email;
+            this.phoneNumber = phoneNumber;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getPasswordHash() {
+            return passwordHash;
+        }
+
+        public void updatePersonalInfo(String fullName, String email, String phoneNumber) {
+            this.fullName = fullName;
+            this.email = email;
+            this.phoneNumber = phoneNumber;
+        }
+    }
+
+    // Bank class to manage multiple users and their accounts
+    static class Bank {
+        private final Map<String, User> users = new HashMap<>();
+        private final Map<String, Account> accounts = new HashMap<>();
+
+        public User createUser(String username, String password, String fullName, String email, String phoneNumber) {
+            User user = new User(username, password, fullName, email, phoneNumber);
+            users.put(username, user);
+            accounts.put(username, new Account(username));
+            return user;
+        }
+
+        public User getUser(String username) {
+            return users.get(username);
+        }
+
+        public Account getAccount(String username) {
+            return accounts.get(username);
+        }
+    }
+
+    // Authentication class for user login and session management
+    static class Authentication {
+        private static final Map<String, String> sessionTokens = new ConcurrentHashMap<>();
+
+        public static boolean authenticate(String username, String password, Bank bank) {
+            User user = bank.getUser(username);
+            if (user != null) {
+                String hash = Encryption.hashPassword(password);
+                return user.getPasswordHash().equals(hash);
+            }
+            return false;
+        }
+
+        public static String generateSessionToken(String username) {
+            String token = Encryption.generateToken(username);
+            sessionTokens.put(username, token);
+            return token;
+        }
+
+        public static boolean validateSessionToken(String username, String token) {
+            return sessionTokens.containsKey(username) && sessionTokens.get(username).equals(token);
+        }
+
+        public static void invalidateSession(String username) {
+            sessionTokens.remove(username);
+        }
+    }
+
+    // Custom exception for insufficient funds
+    static class InsufficientFundsException extends Exception {
+        public InsufficientFundsException(String message) {
+            super(message);
+        }
+    }
+
+    public static void main(String[] args) {
+        Bank bank = new Bank();
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("Welcome to Online Banking System");
+
+        while (true) {
+            System.out.println("\n1. Create Account");
+            System.out.println("2. Login");
+            System.out.println("3. Exit");
+            System.out.print("Choose an option: ");
+            int option = scanner.nextInt();
+            scanner.nextLine(); // Consume newline
+
+            switch (option) {
+                case 1:
+                    System.out.print("Enter Username: ");
+                    String username = scanner.nextLine();
+                    System.out.print("Enter Password: ");
+                    String password = scanner.nextLine();
+                    System.out.print("Enter Full Name: ");
+                    String fullName = scanner.nextLine();
+                    System.out.print("Enter Email: ");
+                    String email = scanner.nextLine();
+                    System.out.print("Enter Phone Number: ");
+                    String phoneNumber = scanner.nextLine();
+                    bank.createUser(username, password, fullName, email, phoneNumber);
+                    System.out.println("Account created successfully!");
+                    break;
+
+                case 2:
+                    System.out.print("Enter Username: ");
+                    username = scanner.nextLine();
+                    System.out.print("Enter Password: ");
+                    password = scanner.nextLine();
+                    if (Authentication.authenticate(username, password, bank)) {
+                        String token = Authentication.generateSessionToken(username);
+                        System.out.println("Login successful! Session Token: " + token);
+
+                        while (true) {
+                            System.out.println("\n1. Deposit");
+                            System.out.println("2. Withdraw");
+                            System.out.println("3. Transfer");
+                            System.out.println("4. View Transaction History");
+                            System.out.println("5. Manage Personal Information");
+                            System.out.println("6. Logout");
+                            System.out.print("Choose an option: ");
+                            int userOption = scanner.nextInt();
+                            scanner.nextLine(); // Consume newline
+
+                            Account account = bank.getAccount(username);
+
+                            switch (userOption) {
+                                case 1:
+                                    System.out.print("Enter deposit amount: ");
+                                    double depositAmount = scanner.nextDouble();
+                                    scanner.nextLine(); // Consume newline
+                                    account.deposit(depositAmount);
+                                    System.out.println("Deposit successful. New balance: " + account.getBalance());
+                                    break;
+
+                                case 2:
+                                    System.out.print("Enter withdrawal amount: ");
+                                    double withdrawAmount = scanner.nextDouble();
+                                    scanner.nextLine(); // Consume newline
+                                    try {
+                                        account.withdraw(withdrawAmount);
+                                        System.out.println("Withdrawal successful. New balance: " + account.getBalance());
+                                    } catch (InsufficientFundsException e) {
+                                        System.out.println(e.getMessage());
+                                    }
+                                    break;
+
+                                case 3:
+                                    System.out.print("Enter recipient's username: ");
+                                    String recipientUsername = scanner.nextLine();
+                                    Account recipientAccount = bank.getAccount(recipientUsername);
+                                    if (recipientAccount == null) {
+                                        System.out.println("Recipient account not found.");
+                                    } else {
+                                        System.out.print("Enter transfer amount: ");
+                                        double transferAmount = scanner.nextDouble();
+                                        scanner.nextLine(); // Consume newline
+                                        try {
+                                            account.transfer(recipientAccount, transferAmount);
+                                            System.out.println("Transfer successful. New balance: " + account.getBalance());
+                                        } catch (InsufficientFundsException e) {
+                                            System.out.println(e.getMessage());
+                                        }
+                                    }
+                                    break;
+
+                                case 4:
+                                    System.out.println("Transaction History:");
+                                    account.viewTransactionHistory();
+                                    break;
+
+                                case 5:
+                                    System.out.print("Enter new Full Name: ");
+                                    String newFullName = scanner.nextLine();
+                                    System.out.print("Enter new Email: ");
+                                    String newEmail = scanner.nextLine();
+                                    System.out.print("Enter new Phone Number: ");
+                                    String newPhoneNumber = scanner.nextLine();
+                                    bank.getUser(username).updatePersonalInfo(newFullName, newEmail, newPhoneNumber);
+                                    System.out.println("Personal information updated successfully.");
+                                    break;
+
+                                    case 6:
+                                    System.out.println("Logged out successfully.");
+                                    return;
+
+                                default:
+                                    System.out.println("Invalid option. Try again.");
+                            }
+                        }
+                    } else {
+                        System.out.println("Invalid username or password.");
+                    }
+                    break;
+
+                case 3:
+                    System.out.println("Exiting the system. Goodbye!");
+                    return;
+
+                default:
+                    System.out.println("Invalid option. Try again.");
+            }
+        }
+    }
+}
